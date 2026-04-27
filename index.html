@@ -36,7 +36,7 @@
         <div class="w-full max-w-sm text-center">
             <span class="text-7xl">🎺</span>
             <h1 class="text-4xl font-black my-8 uppercase tracking-tighter italic">Mariachi<br><span class="text-blue-600">Nómina</span></h1>
-            <input type="password" id="pass-input" placeholder="Contraseña" class="w-full text-center text-3xl mb-6 py-6 bg-white border-2 border-slate-100 rounded-[2rem] outline-none shadow-inner">
+            <input type="password" id="pass-input" inputmode="numeric" placeholder="Contraseña" class="w-full text-center text-3xl mb-6 py-6 bg-white border-2 border-slate-100 rounded-[2rem] outline-none shadow-inner">
             <button onclick="validarAcceso()" class="w-full bg-slate-900 text-white p-6 text-xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all uppercase">Acceder</button>
                         <button onclick="mostrarCambiarPass()" class="mt-6 text-slate-400 text-sm font-medium">Cambiar clave</button>
         </div>
@@ -44,8 +44,8 @@
 
     <div id="pantalla-cambiar-pass" class="hidden p-6 max-w-sm mx-auto min-h-screen flex flex-col justify-center">
         <h2 class="text-2xl font-bold mb-6 text-center">Cambiar Clave</h2>
-        <input type="password" id="pass-antigua" placeholder="Clave Anterior" class="w-full mb-3 p-4 bg-white border-2 border-slate-200 rounded-2xl">
-        <input type="password" id="pass-nueva" placeholder="Clave Nueva" class="w-full mb-6 p-4 bg-white border-2 border-slate-200 rounded-2xl">
+        <input type="password" id="pass-antigua" inputmode="numeric" placeholder="Clave Anterior" class="w-full mb-3 p-4 bg-white border-2 border-slate-200 rounded-2xl">
+        <input type="password" id="pass-nueva" inputmode="numeric" placeholder="Clave Nueva" class="w-full mb-6 p-4 bg-white border-2 border-slate-200 rounded-2xl">
         <button onclick="procesarCambioPass()" class="bg-slate-800 text-white p-5 text-xl font-bold rounded-3xl shadow-lg mb-4">ACTUALIZAR</button>
         <button onclick="navegar('login')" class="text-slate-400 w-full text-center">Volver</button>
     </div>
