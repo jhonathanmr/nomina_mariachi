@@ -307,6 +307,7 @@
         saldos[n] -= m;
         historial.unshift({ nombre: n, monto: m, fecha: new Date().toLocaleDateString() });
         await sincronizarNube();
+        document.getElementById('monto-adelanto').value = "0";
         navegar('menu');
     }
 
