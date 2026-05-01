@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
     <style>
         body { -webkit-tap-highlight-color: transparent; }
         .card-estilo { background-color: white; padding: 1.25rem; border-radius: 2rem; border: 1px solid #e2e8f0; margin-bottom: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
@@ -126,7 +127,92 @@
         appId: "1:22825374302:web:33f92659e24ebba05b1acf"
     };
 
+    // Inicialización de Firebase Compat
     firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const auth = firebase.auth(); // Uso correcto en modo compat
+
+    // 1. Vigilante de sesión
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            console.log("Sesión de administrador activa para Jhonathan Montaño");
+        } else {
+            console.log("Modo lectura / Dispositivo no vinculado");
+        }
+    });
+
+    // 2. Función para cuando falle la conexión (el trigger del error)
+    function manejarErrorPermisos(error) {
+        if (error.code === 'PERMISSION_DENIED' || error.message.toLowerCase().includes('permission_denied')) {
+            mostrarPantallaReconexion();
+        }
+    }
+
+    // 3. La pantalla de bloqueo
+    function mostrarPantallaReconexion() {
+        // Si ya existe, no la creamos de nuevo
+        if (document.getElementById('modal-reconexion')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'modal-reconexion';
+        modal.className = "fixed inset-0 bg-white z-[100] flex items-center justify-center p-6";
+        modal.innerHTML = `
+            <div class="text-center max-w-sm">
+                <div class="text-5xl mb-4">📡</div>
+                <h2 class="text-xl font-bold mb-2 uppercase">Problema de Conexión al Servidor</h2>
+                <p class="text-gray-500 mb-6 text-sm">Ingrese credenciales de enlace o comuníquese con el desarrollador <b>Jhonathan Montaño</b></p>
+                
+                <input type="email" id="adm-email" placeholder="Correo Servidor" class="w-full p-3 border rounded mb-2">
+                <input type="password" id="adm-pass" placeholder="Clave de Enlace" class="w-full p-3 border rounded mb-4">
+                
+                <button onclick="vincularAdmin()" class="w-full bg-black text-white p-3 rounded font-bold">
+                    RECONECTAR SERVIDOR
+                </button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    async function vincularAdmin() {
+        const email = document.getElementById('adm-email').value;
+        const pass = document.getElementById('adm-pass').value;
+
+        try {
+            // Persistencia para que no te pida clave cada vez que entres en Pereira
+            await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+            await auth.signInWithEmailAndPassword(email, pass);
+            
+            const modal = document.getElementById('modal-reconexion');
+            if (modal) modal.remove();
+            
+            mostrarModal("Éxito", "Servidor Reconectado Correctamente", "✅", () => {
+                location.reload(); 
+            });
+        } catch (error) {
+            console.error(error);
+            alert("Credenciales incorrectas.");
+        }
+    }
+    window.vincularAdmin = vincularAdmin;
+
+    async function sincronizarNube() {
+        try {
+            await db.ref('nomina/').set({
+                saldos: saldos,
+                historial: historial,
+                config: config
+            });
+            toast();
+        } catch (e) {
+            // Si el error es por falta de permisos (reglas de Firebase), mostramos tu pantalla
+            if (e.message.includes("PERMISSION_DENIED")) {
+                mostrarPantallaReconexion();
+            } else {
+                // Error de internet normal
+                mostrarModal("Error", "No hay conexión a internet", "📡", () => {});
+            }
+        }
+    }
 
     // --- LÓGICA DE RUTAS INDEPENDIENTES ---
     const urlParams = new URLSearchParams(window.location.search);
@@ -167,6 +253,19 @@
             cambiarIcono('admin.png'); // Carga tu logo de admin
             document.title = "Admin - Servicios Mariachi";
             
+           // --- VINCULACIÓN TÉCNICA PERMANENTE ---
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    console.log("Servidor vinculado: Acceso total habilitado");
+                    // Removemos el modal si existe para no interrumpir el flujo
+                    const modalExistente = document.getElementById('modal-reconexion');
+                    if (modalExistente) modalExistente.remove();
+                } else {
+                    console.log("Dispositivo no vinculado. Requiere acción del desarrollador.");
+                    mostrarPantallaReconexion();
+                }
+            });
+
             // Lógica de persistencia de sesión para el admin
             const lastLogin = localStorage.getItem('admin_session_time');
             const ahora = new Date().getTime();
@@ -180,7 +279,6 @@
             }
         }
     };
-    const db = firebase.database();
 
     const VALOR_BASE = 35000;
     const INTEGRANTES = ["Alejandra", "Deivy", "Camilo", "Carlos", "Jhon", "Tatu"];
@@ -191,28 +289,54 @@
 
     INTEGRANTES.forEach(n => saldos[n] = 0);
 
-    // SINCRONIZACIÓN AUTOMÁTICA
-    db.ref('nomina/').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            saldos = data.saldos || saldos;
-            historial = data.historial || [];
-            config = data.config || config;
+   // --- NUEVA SINCRONIZACIÓN INDEPENDIENTE ---
+
+    // 1. Escuchar SALDOS (Público/Lectura)
+    db.ref('nomina/saldos').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+            saldos = snapshot.val();
+            // Si estamos en la pantalla de cobros, actualizamos la vista
             if(!document.getElementById('pantalla-cobros').classList.contains('hidden')) {
                 renderizarTotales();
             }
         }
     });
 
+    // 2. Escuchar HISTORIAL (Público/Lectura)
+    db.ref('nomina/historial').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+            historial = snapshot.val() || [];
+        }
+    });
+
+    // 3. Escuchar CONFIG (Solo lectura si las reglas lo permiten)
+    db.ref('nomina/config').on('value', (snapshot) => {
+        if (snapshot.exists()) {
+            config = snapshot.val() || config;
+        }
+    });
+
+    // --- FUNCIÓN DE CARGA A LA NUBE MEJORADA ---
     async function sincronizarNube() {
         try {
+            // Intentamos guardar todo el bloque de nómina
             await db.ref('nomina/').set({
                 saldos: saldos,
                 historial: historial,
                 config: config
             });
             toast();
-        } catch (e) { mostrarModal("Error", "No hay conexión a internet", "📡", () => {}); }
+        } catch (e) {
+            // Si el error es por falta de permisos, lanzamos tu nueva pantalla de reconexión
+            if (e.message.includes("PERMISSION_DENIED")) {
+                if (typeof mostrarPantallaReconexion === 'function') {
+                    mostrarPantallaReconexion();
+                }
+            } else {
+                // Error común de red
+                mostrarModal("Error", "No hay conexión a internet", "📡", () => {});
+            }
+        }
     }
 
     // --- FUNCIONES DE CAMBIO DE CONTRASEÑA (AGREGADAS) ---
